@@ -13,11 +13,11 @@ namespace NewGamePlus
 {
     public class Settings
     {
-        public static string DisableNG_Name = "DisableNG";
+        public static string DisableNG_Name = "Disable NG";
 
-        public static string DeleteKeys_Name = "DeleteKeys";
+        public static string DeleteKeys_Name = "Delete Keys";
 
-        public static string TransferExalted_Name = "TransferExalted";
+        public static string TransferExalted_Name = "Transfer Exalted";
     }
 
     public class NewGameExtension : PlayerSaveExtension
@@ -85,8 +85,7 @@ namespace NewGamePlus
     {
         const string ID = "com.potatiums.newgameplus";
         const string NAME = "New Game Plus";
-        const string VERSION = "1.0";
-        public static double VersionNum = 1.0;
+        const string VERSION = "1.0.2";
 
         public static ConfigEntry<bool> DisableLegacyChar;
         public static ConfigEntry<bool> LegacyCharCreationSettings;
@@ -113,9 +112,7 @@ namespace NewGamePlus
             Instance = this;
             logboy = Logger;
 
-            NG_StatusManager.InitializeEffects();
-            SL.OnPacksLoaded += NG_StatusManager.UpdateLevelData;
-
+            //load configs
             DisableLegacyChar = Config.Bind<bool>(ID, $"Disable Legacy Character Creation?", false, "Disable Legacy Character Creation?");
             LegacyCharCreationSettings = Config.Bind<bool>(ID, Settings.DeleteKeys_Name, true, "Delete Keys on Creation");
             TransferMoney = Config.Bind<bool>(ID, "Transfer Money", true, "Transfer Legacy Character Money");
@@ -125,9 +122,13 @@ namespace NewGamePlus
             TransferFromStash = Config.Bind<bool>(ID, "Transfer from Stash", false, "Transfer Legacy Character Stash Items");
             TransferExaltedAndLifeDrain = Config.Bind<bool>(ID, Settings.TransferExalted_Name, false, "Transfer Exalted & Life Drain on Creation");
             EnableDebuff = Config.Bind<bool>(ID, "Enable Debuff", true, "Enable Stretched Thin?");
-            RESValue = Config.Bind<int>(ID, "WIP - Stretched Thin - Resistance", 25, "WIP - Debuff Resistance %");
-            DMGValue = Config.Bind<int>(ID, "WIP - Stretched Thin - Damage", 15, "WIP - Debuff Damage %");
-            MAXLvl = Config.Bind<int>(ID, "WIP - Stretched Thin - Max Level", 100, "WIP - Maximum Level for Stretched Skin");
+            RESValue = Config.Bind<int>(ID, "Stretched Thin - Resistance", 25, "Debuff Resistance %");
+            DMGValue = Config.Bind<int>(ID, "Stretched Thin - Damage", 15, "Debuff Damage %");
+            MAXLvl = Config.Bind<int>(ID, "Stretched Thin - Max Level", 100, "Maximum Level for Stretched Skin");
+
+            //initialize NG_StatusManager Debuff
+            NG_StatusManager.InitializeEffects();
+            SL.OnPacksLoaded += NG_StatusManager.UpdateLevelData;
 
             var harmony = new Harmony(ID);
             harmony.PatchAll();

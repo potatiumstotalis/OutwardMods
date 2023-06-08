@@ -1,13 +1,15 @@
-﻿using SideLoader;
+﻿using NodeCanvas.Tasks.Conditions;
+using SideLoader;
 using System;
+using UnityEngine.Assertions.Must;
 
 namespace NewGamePlus
 {
     class NG_StatusManager
     {
-        static readonly int RESISTANCE_CHANGE = 25;
-        static readonly int DAMAGE_CHANGE = 15;
-        static readonly int MAX_LEVEL = 100;
+        public static int RESISTANCE_CHANGE = NewGamePlus.RESValue.Value;
+        public static int DAMAGE_CHANGE = NewGamePlus.DMGValue.Value;
+        public static int MAX_LEVEL = NewGamePlus.MAXLvl.Value;
 
         public static SL_LevelStatusEffect eff = new SL_LevelStatusEffect
         {
@@ -67,6 +69,7 @@ namespace NewGamePlus
 
         public static void UpdateLevelData()
         {
+
             LevelStatusEffect eff = (LevelStatusEffect)ResourcesPrefabManager.Instance.GetStatusEffectPrefab("Stretched Thin");
 
             int currMaxLevel = (int)At.GetField(eff, "m_maxLevel");
