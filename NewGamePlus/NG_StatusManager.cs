@@ -5,9 +5,9 @@ namespace NewGamePlus
 {
     class NG_StatusManager
     {
-        static int RESISTANCE_CHANGE = NewGamePlus.RESChange;
-        static int DAMAGE_CHANGE = NewGamePlus.DMGChange;
-        static int MAX_LEVEL = NewGamePlus.Maximlvl;
+        static readonly int RESISTANCE_CHANGE = 25;
+        static readonly int DAMAGE_CHANGE = 15;
+        static readonly int MAX_LEVEL = 100;
 
         public static SL_LevelStatusEffect eff = new SL_LevelStatusEffect
         {

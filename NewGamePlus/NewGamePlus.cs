@@ -90,14 +90,16 @@ namespace NewGamePlus
 
         public static ConfigEntry<bool> DisableLegacyChar;
         public static ConfigEntry<bool> LegacyCharCreationSettings;
+        public static ConfigEntry<bool> TransferMoney;
+        public static ConfigEntry<bool> TransferSkills;
+        public static ConfigEntry<bool> TransferFromPouch;
+        public static ConfigEntry<bool> TransferFromBag;
+        public static ConfigEntry<bool> TransferFromStash;
         public static ConfigEntry<bool> TransferExaltedAndLifeDrain;
         public static ConfigEntry<bool> EnableDebuff;
-        public static ConfigEntry<int> DMGValue;
         public static ConfigEntry<int> RESValue;
+        public static ConfigEntry<int> DMGValue;
         public static ConfigEntry<int> MAXLvl;
-        public static int DMGChange = 1;
-        public static int RESChange = 1;
-        public static int Maximlvl = 100;
 
 
         const BindingFlags FLAGS = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static;
@@ -116,15 +118,16 @@ namespace NewGamePlus
 
             DisableLegacyChar = Config.Bind<bool>(ID, $"Disable Legacy Character Creation?", false, "Disable Legacy Character Creation?");
             LegacyCharCreationSettings = Config.Bind<bool>(ID, Settings.DeleteKeys_Name, true, "Delete Keys on Creation");
+            TransferMoney = Config.Bind<bool>(ID, "Transfer Money", true, "Transfer Legacy Character Money");
+            TransferSkills = Config.Bind<bool>(ID, "Transfer Skills", true, "Transfer Legacy Character Skills");
+            TransferFromPouch = Config.Bind<bool>(ID, "Transfer from Pouch", true, "Transfer Legacy Character Pouch Items");
+            TransferFromBag = Config.Bind<bool>(ID, "WIP - Transfer from Backpack", true, "WIP - Transfer Legacy Character Backpack Items");
+            TransferFromStash = Config.Bind<bool>(ID, "Transfer from Stash", false, "Transfer Legacy Character Stash Items");
             TransferExaltedAndLifeDrain = Config.Bind<bool>(ID, Settings.TransferExalted_Name, false, "Transfer Exalted & Life Drain on Creation");
-            EnableDebuff = Config.Bind<bool>(ID, "Enable Stretched Thin Debuff", true, "Enable Stretched Thin Debuff?");
-            DMGValue = Config.Bind<int>(ID, "Damage Value", 1, "Debuff DMG Amount for Streched Skin");
-            RESValue = Config.Bind<int>(ID, "Resistance Value", 1, "Debuff RES Amount for Streched Skin");
-            MAXLvl = Config.Bind<int>(ID, "Max Level", 100, "Maximum Level for Debuffs");
-            DMGChange = DMGValue.Value;
-            RESChange = RESValue.Value;
-            Maximlvl = MAXLvl.Value;
-
+            EnableDebuff = Config.Bind<bool>(ID, "Enable Debuff", true, "Enable Stretched Thin?");
+            RESValue = Config.Bind<int>(ID, "WIP - Stretched Thin - Resistance", 25, "WIP - Debuff Resistance %");
+            DMGValue = Config.Bind<int>(ID, "WIP - Stretched Thin - Damage", 15, "WIP - Debuff Damage %");
+            MAXLvl = Config.Bind<int>(ID, "WIP - Stretched Thin - Max Level", 100, "WIP - Maximum Level for Stretched Skin");
 
             var harmony = new Harmony(ID);
             harmony.PatchAll();
@@ -185,7 +188,8 @@ namespace NewGamePlus
                                         int len1 = data.SyncData.IndexOf(";", loc1) - loc1;
                                         string silver = data.SyncData.Substring(loc1 + 10, len1 - 10);
                                         if (int.TryParse(silver, out int money))
-                                            ((Bag)clone).Container.SetSilverCount(money);
+                                            if (TransferMoney.Value == true)
+                                                ((Bag)clone).Container.SetSilverCount(money);
                                         else
                                             logboy.Log(LogLevel.Error, "Couldn't parse integer: " + silver);
                                     }
@@ -208,7 +212,29 @@ namespace NewGamePlus
                             //logboy.Log(LogLevel.Message, "Item: " + item.GetType() + " - " + item.Name + " - " + item.name + " - " + data.SyncData);
                             int len = data.SyncData.IndexOf("<", loc + 11) - (loc + 11);
                             string type = data.SyncData.Substring(loc + 11, len);
-                            if (type.StartsWith("1Pouch"))
+                            if (type.StartsWith("1Pouch") && TransferFromPouch.Value == true)
+                            {
+                                item.ChangeParent(player.Inventory.Pouch.transform);
+                                Item clone = ItemManager.Instance.CloneItem(item);
+                                if (item.RemainingAmount != clone.RemainingAmount)
+                                    clone.RemainingAmount = item.RemainingAmount;
+                                clone.OnContainerChangedOwner(player);
+                                clone.SetIsntNew();
+                                clone.ChangeParent(player.Inventory.Pouch.transform);
+                                clone.ForceStartInit();
+                            }
+                            else if (type.StartsWith("1Bag") && TransferFromBag.Value == true)
+                            {
+                                item.ChangeParent(player.Inventory.EquippedBag.transform);
+                                Item clone = ItemManager.Instance.CloneItem(item);
+                                if (item.RemainingAmount != clone.RemainingAmount)
+                                    clone.RemainingAmount = item.RemainingAmount;
+                                clone.OnContainerChangedOwner(player);
+                                clone.SetIsntNew();
+                                clone.ChangeParent(player.Inventory.Pouch.transform);
+                                clone.ForceStartInit();
+                            }
+                            else if (type.StartsWith("1Stash") && TransferFromStash.Value == true)
                             {
                                 item.ChangeParent(player.Inventory.Stash.transform);
                                 Item clone = ItemManager.Instance.CloneItem(item);
@@ -263,8 +289,8 @@ namespace NewGamePlus
                                             }
 
                                         }
-
-                                        player.Inventory.TryUnlockSkill((Skill)item);
+                                        if (TransferSkills.Value == true)
+                                            player.Inventory.TryUnlockSkill((Skill)item);
                                         if (!player.Inventory.LearnedSkill(item))
                                             logboy.Log(LogLevel.Error, "Failed to learn skill: " + item.Name);
                                         else
