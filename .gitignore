@@ -7,3 +7,8 @@
 /.gitignore
 /.gitignore
 /.gitignore
+/NewGamePlus/obj/Release
+/NewGamePlus/Build/0Harmony.dll
+/NewGamePlus/Build/0Harmony.xml
+/NewGamePlus/Build/NewGamePlus.dll.config
+/NewGamePlus/Build/UnityEngine.CoreModule.dll
