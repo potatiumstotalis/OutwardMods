@@ -1,6 +1,7 @@
 ﻿using NodeCanvas.Tasks.Conditions;
 using SideLoader;
 using System;
+using UnityEngine;
 using UnityEngine.Assertions.Must;
 
 namespace NewGamePlus
@@ -22,6 +23,7 @@ namespace NewGamePlus
             Purgeable = false,
             MaxLevel = MAX_LEVEL,
             EffectBehaviour = EditBehaviours.Destroy,
+            
             Effects = new SL_EffectTransform[] {
                 new SL_EffectTransform
                 {
@@ -60,10 +62,33 @@ namespace NewGamePlus
             }
         };
 
+        public static SL_ItemVisual iconvis = new SL_ItemVisual()
+        {
+            Prefab_SLPack = "NewGamePlus",
+            Prefab_AssetBundle = "StatusEffects/Stretched_Thin",
+            Prefab_Name = "icon.png",
+            ResourcesPrefabPath = "Side",
+        };
+
         public static void InitializeEffects()
         {
+            //Load Correct SL Pack (SL Manifest)
             eff.SLPackName = "NewGamePlus";
-            eff.SubfolderName = "Stretched_Thin";
+
+            //Load Correct Icon Folder
+            if (NewGamePlus.effIcon.Value.ToLower() == "red")
+            {
+                eff.SubfolderName = "Stretched_Thin/red";
+            }
+            else if (NewGamePlus.effIcon.Value.ToLower() == "transparent")
+            {
+                eff.SubfolderName = "Stretched_Thin/transparent";
+            }
+            else
+            {
+                eff.SubfolderName = "Stretched_Thin/orange";
+            }
+
             eff.ApplyTemplate();
         }
 
