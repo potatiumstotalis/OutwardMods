@@ -18,11 +18,6 @@ namespace NewGamePlus
     {
         public static string DisableNG_Name = "Disable NG";
 
-        public static string DeleteKeys_Name = "Delete Keys";
-
-        public static string TransferExalted_Name = "Transfer Exalted";
-    }
-
     public class NewGameExtension : PlayerSaveExtension
     {
         public int LegacyLevel;
