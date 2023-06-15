@@ -2,22 +2,33 @@
 using System;
 using BepInEx;
 using BepInEx.Logging;
+using BepInEx.Configuration;
 using System.Reflection;
 using HarmonyLib;
 using System.Collections.Generic;
 using SideLoader.SaveData;
 using SideLoader;
-using BepInEx.Configuration;
 using System.Linq;
 using System.Linq.Expressions;
 using NodeCanvas.BehaviourTrees;
+using UnityEngine;
+using Random = UnityEngine.Random;
+using static MapMagic.Layout;
+using static SideLoader.SL_Recipe;
 
 namespace NewGamePlus
 {
     public class Settings
     {
-        public static string DisableNG_Name = "Disable NG";
-
+        public static string Main = "0. NGP Main";
+        public static string TransfersE = "1. Transfer - Equipped";
+        public static string Transfers = "2. Transfer - Main";
+        public static string Limiters = "3. Limiters - Main";
+        public static string LimitersT = "4. Limiters - Type";
+        public static string Debuff = "5. Debuff - Streched Skin (Restart)";
+        public static string BLists = "6. Blacklists";
+        public static string Extras = "7. Extras";
+    }
     public class NewGameExtension : PlayerSaveExtension
     {
         public int LegacyLevel;
@@ -83,31 +94,17 @@ namespace NewGamePlus
     {
         const string ID = "com.potatiums.newgameplus";
         const string NAME = "New Game Plus";
-        const string VERSION = "1.1.0";
+        const string VERSION = "1.2.0";
 
-        public static ConfigEntry<bool> DisableLegacyChar;
-        public static ConfigEntry<bool> LegacyCharCreationSettings;
-        public static ConfigEntry<bool> TransferMoney;
-        public static ConfigEntry<bool> TransferSkills;
-        public static ConfigEntry<bool> TransferEquipped;
-        public static ConfigEntry<bool> TransferFromPouch;
-        public static ConfigEntry<bool> TransferFromBag;
-        public static ConfigEntry<bool> TransferFromStash;
-        public static ConfigEntry<bool> TransferExaltedAndLifeDrain;
-        public static ConfigEntry<bool> EnableDebuff;
-        public static ConfigEntry<int> RESValue;
-        public static ConfigEntry<int> DMGValue;
-        public static ConfigEntry<int> MAXLvl;
-        public static ConfigEntry<string> effIcon;
-
-        public static ConfigEntry<int> MaxMoney;
-        public static ConfigEntry<string> MoneyTarget;
+        public static List<string> FItemsN = new List<string>();
+        public static List<string> FSkillsN = new List<string>();
         public static List<int> FItems = new List<int>();
-        public static ConfigEntry<string> ForbiddenItems;
         public static List<int> FSkills = new List<int>();
-        public static ConfigEntry<string> ForbiddenSkills;
 
-
+        public static ConfigEntry<bool> EnableNGP, DeleteKeys, TransferEquipped, TransferEquippedArmor, TransferEquippedMelee, TransferEquippedRanged, TransferEquippedAmmo, TransferMoney, TransferSkills, TransferRecipes, TransferFromPouch, TransferFromBag, TransferFromStash, EnableL, EnableLT, TransferExaltedAndLifeDrain, EnableDebuff, EnableBlacklists;
+        public static ConfigEntry<float> MoneyL, SkillL, EquippedL, PouchL, BagL, StashL, FoodLT, Melee1LT, Melee2LT, RangedLT, AmmoLT, BagLT, ItemLT;
+        public static ConfigEntry<int> RESValue, DMGValue, MAXLvl, MaxMoney;
+        public static ConfigEntry<string> effIcon, MoneyTarget, ForbiddenItemsN, ForbiddenSkillsN, ForbiddenItemsID, ForbiddenSkillsID;
 
         const BindingFlags FLAGS = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static;
 
@@ -121,45 +118,109 @@ namespace NewGamePlus
             logboy = Logger;
 
             //load configs
-            DisableLegacyChar = Config.Bind<bool>(ID, $"Disable Legacy Character Creation?", false, "Disable Legacy Character Creation?");
-            LegacyCharCreationSettings = Config.Bind<bool>(ID, Settings.DeleteKeys_Name, true, "Delete Keys on Creation");
-            TransferMoney = Config.Bind<bool>(ID, "Transfer Money", true, "Transfer Legacy Character Money");
-            TransferSkills = Config.Bind<bool>(ID, "Transfer Skills", true, "Transfer Legacy Character Skills");
-            TransferEquipped = Config.Bind<bool>(ID, "Transfer Equipped Items", true, "Transfer Legacy Character Equipped Items");
-            TransferFromPouch = Config.Bind<bool>(ID, "Transfer from Pouch", true, "Transfer Legacy Character Pouch Items");
-            TransferFromBag = Config.Bind<bool>(ID, "Transfer from Backpack", true, "Transfer Legacy Character Backpack Items");
-            TransferFromStash = Config.Bind<bool>(ID, "Transfer from Stash", false, "Transfer Legacy Character Stash Items");
-            TransferExaltedAndLifeDrain = Config.Bind<bool>(ID, Settings.TransferExalted_Name, false, "Transfer Exalted & Life Drain on Creation");
-            EnableDebuff = Config.Bind<bool>(ID, "Enable Debuff", true, "Enable Stretched Thin?");
-            RESValue = Config.Bind<int>(ID, "Stretched Thin - Resistance", 25, "Debuff Resistance %");
-            DMGValue = Config.Bind<int>(ID, "Stretched Thin - Damage", 15, "Debuff Damage %");
-            MAXLvl = Config.Bind<int>(ID, "Stretched Thin - Max Level", 100, "Maximum Level for Stretched Skin");
-            effIcon = Config.Bind<string>(ID, "Choose Stretched Skin Icon", "orange", "orange (default) | red | transparent");
-            MaxMoney = Config.Bind<int>(ID, "Max Money", 0, "Maximum Amount of silver to Transfer (0 = Unlimited)");
-            MoneyTarget = Config.Bind<string>(ID, "Money Target", "stash", "Where silver will be transferred to: pouch | backpack | stash (default)");
-            ForbiddenItems = Config.Bind<string>(ID, "Forbidden Items - Will NOT Transfer", "3100090,3100092,3100091,5100080,2100150,2100030,3100490,3100031,3100030,3100040,3100042,3100041,2000031,2200100,5110097", "Write the Item ID's, separated by commas | Default: All Faction-Exclusive Items");
-            ForbiddenSkills = Config.Bind<string>(ID, "Forbidden Skills - Will NOT Transfer", "8205340,8205330,8200105,8205350,8202005,8205280,8200100,8205270,8205240,8205311,8205310,8205300,8202004,8205998,8205997,8200104", "Write the Skill ID's, separated by commas | Default: All Faction-Exclusive Skills");
+            //Main
+            EnableNGP = Config.Bind<bool>(Settings.Main, "New Game Plus - On/Off", true, new ConfigDescription("Enable New Game Plus", null, new ConfigurationManagerAttributes { Order = 2 }));
+            DeleteKeys = Config.Bind<bool>(Settings.Main, "Delete Keys", true, new ConfigDescription("Delete Keys on Creation", null, new ConfigurationManagerAttributes { Order = 1 }));
+            
+            //Transfers - Equipped
+            TransferEquipped = Config.Bind<bool>(Settings.TransfersE, "Transfer Equipped - On/Off", true, new ConfigDescription("Enables -Equipped- Section", null, new ConfigurationManagerAttributes { Order = 5 }));
+            TransferEquippedArmor = Config.Bind<bool>(Settings.TransfersE, "Transfer - Equipped Armor", true, new ConfigDescription("Transfer Equipped Armor", null, new ConfigurationManagerAttributes { Order = 4 }));
+            TransferEquippedMelee = Config.Bind<bool>(Settings.TransfersE, "Transfer - Equipped Melee", true, new ConfigDescription("Transfer Equipped Melee Weapon/Shield", null, new ConfigurationManagerAttributes { Order = 3 }));
+            TransferEquippedRanged = Config.Bind<bool>(Settings.TransfersE, "Transfer - Equipped Ranged", true, new ConfigDescription("Transfer Equipped Ranged Weapon", null, new ConfigurationManagerAttributes { Order = 2 }));
+            TransferEquippedAmmo = Config.Bind<bool>(Settings.TransfersE, "Transfer - Equipped Ammo", true, new ConfigDescription("Transfer Equipped Ammo", null, new ConfigurationManagerAttributes { Order = 1 }));
+            
+            //Transfers - Main
+            TransferMoney = Config.Bind<bool>(Settings.Transfers, "Transfer - Money", true, new ConfigDescription("Transfer Money", null, new ConfigurationManagerAttributes { Order = 6 }));
+            TransferSkills = Config.Bind<bool>(Settings.Transfers, "Transfer - Skills", true, new ConfigDescription("Transfer Skills", null, new ConfigurationManagerAttributes { Order = 5 }));
+            TransferRecipes = Config.Bind<bool>(Settings.Transfers, "Transfer - Recipes", true, new ConfigDescription("Transfer Recipes", null, new ConfigurationManagerAttributes { Order = 4 }));
+            TransferFromPouch = Config.Bind<bool>(Settings.Transfers, "Transfer - Pouch", true, new ConfigDescription("Transfer Pouch Items", null, new ConfigurationManagerAttributes { Order = 3 }));
+            TransferFromBag = Config.Bind<bool>(Settings.Transfers, "Transfer - Bag", true, new ConfigDescription("Transfer Backpack Items", null, new ConfigurationManagerAttributes { Order = 2 }));
+            TransferFromStash = Config.Bind<bool>(Settings.Transfers, "Transfer - Stash", true, new ConfigDescription("Transfer Stash Items", null, new ConfigurationManagerAttributes { Order = 1 }));
+            
+            //Limiters Main
+            EnableL = Config.Bind<bool>(Settings.Limiters, "Limiters - On/Off", true, new ConfigDescription("Enable Main Limiters", null, new ConfigurationManagerAttributes { Order = 7 }));
+            MoneyL = Config.Bind<float>(Settings.Limiters, "% - Money", 1f, new ConfigDescription("Limit Money %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 6 }));
+            SkillL = Config.Bind<float>(Settings.Limiters, "% - Skills", 0.75f, new ConfigDescription("Limit Skill %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 5 }));
+            EquippedL = Config.Bind<float>(Settings.Limiters, "% - Equipped", 1f, new ConfigDescription("Limit Equipped Items %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 4 }));
+            PouchL = Config.Bind<float>(Settings.Limiters, "% - Pouch", 0.75f, new ConfigDescription("Limit Pouch Items %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 3 }));
+            BagL = Config.Bind<float>(Settings.Limiters, "% - Backpack", 0.50f, new ConfigDescription("Limit Backpack Items %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 2 }));
+            StashL = Config.Bind<float>(Settings.Limiters, "% - Stash", 0.20f, new ConfigDescription("Limit Stash Items %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 1 }));
+
+            //Limiters - Type
+            EnableLT = Config.Bind<bool>(Settings.LimitersT, "Limiters - On/Off", true, new ConfigDescription("Enable Type Limiters", null, new ConfigurationManagerAttributes { Order = 8 }));
+            FoodLT = Config.Bind<float>(Settings.LimitersT, "% - Food", 0.5f, new ConfigDescription("Limit Food %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 7 }));
+            Melee1LT = Config.Bind<float>(Settings.LimitersT, "% - Melee - One Handed", 0.5f, new ConfigDescription("Limit One-Handed Melee Weapons %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 6 }));
+            Melee2LT = Config.Bind<float>(Settings.LimitersT, "% - Melee - Two Handed", 0.5f, new ConfigDescription("Limit Two-Handed Melee Weapons %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 6 }));
+            RangedLT = Config.Bind<float>(Settings.LimitersT, "% - Ranged", 0.5f, new ConfigDescription("Limit Ranged Weapons %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 4 }));
+            AmmoLT = Config.Bind<float>(Settings.LimitersT, "% - Ammo", 0.5f, new ConfigDescription("Limit Ammo %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 3 }));
+            BagLT = Config.Bind<float>(Settings.LimitersT, "% - Bags", 0.5f, new ConfigDescription("Limit Bags %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 2 }));
+            ItemLT = Config.Bind<float>(Settings.LimitersT, "% - Other Items", 0.5f, new ConfigDescription("Limit Other Items %", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { Order = 1 }));
+
+            //Debuff Settings (needs restart)
+            EnableDebuff = Config.Bind<bool>(Settings.Debuff, "Debuff - On/Off", true, new ConfigDescription("Enable Streched Skin", null, new ConfigurationManagerAttributes { Order = 6 }));
+            TransferExaltedAndLifeDrain = Config.Bind<bool>(Settings.Debuff, "Debuff - Transfer Exalted", false, new ConfigDescription("Transfer Exalted & Life Drain", null, new ConfigurationManagerAttributes { Order = 5 }));
+            RESValue = Config.Bind<int>(Settings.Debuff, "Debuff - Resistance", 25, new ConfigDescription("Debuff Resistance %", new AcceptableValueRange<int>(0, 200), new ConfigurationManagerAttributes { Order = 4 }));
+            DMGValue = Config.Bind<int>(Settings.Debuff, "Debuff - Damage", 15, new ConfigDescription("Debuff Damage %", new AcceptableValueRange<int>(0, 200), new ConfigurationManagerAttributes { Order = 3 }));
+            MAXLvl = Config.Bind<int>(Settings.Debuff, "Debuff - Max Level", 100, new ConfigDescription("Maximum Level for Debuff", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = 2 }));
+            effIcon = Config.Bind<string>(Settings.Debuff, "Debuff - Icon", "Orange", new ConfigDescription("Streched Skin Icon", new AcceptableValueList<string>("Orange", "Red", "Transparent"), new ConfigurationManagerAttributes { Order = 1 }));
+
+            //Blacklists
+            EnableBlacklists = Config.Bind<bool>(Settings.BLists, "Blacklists - On/Off", true, new ConfigDescription("Enable Blacklists", null, new ConfigurationManagerAttributes { Order = 5 }));
+            ForbiddenItemsN = Config.Bind<string>(Settings.BLists, "Blacklist - Items - Name(s)", "", new ConfigDescription("Write the Item Name(s), separated by commas | eg: Fang Sword,Fang Shield", null, new ConfigurationManagerAttributes { Order = 4 }));
+            ForbiddenItemsID = Config.Bind<string>(Settings.BLists, "Blacklist - Items - ID(s)", "3100090,3100092,3100091,5100080,2100150,2100030,3100490,3100031,3100030,3100040,3100042,3100041,2000031,2200100,5110097", new ConfigDescription("Write the Item ID(s), separated by commas | Default: All Faction-Exclusive Items", null, new ConfigurationManagerAttributes { Order = 3 }));
+            ForbiddenSkillsN = Config.Bind<string>(Settings.BLists, "Blacklist - Skills - Name(s)", "", new ConfigDescription("Write the Skill Name(s), separated by commas", null, new ConfigurationManagerAttributes { Order = 2 }));
+            ForbiddenSkillsID = Config.Bind<string>(Settings.BLists, "Blacklist - Skills - ID(s)", "8205340,8205330,8200105,8205350,8202005,8205280,8200100,8205270,8205240,8205311,8205310,8205300,8202004,8205998,8205997,8200104", new ConfigDescription("Write the Skill ID(s), separated by commas | Default: All Faction-Exclusive Skills", null, new ConfigurationManagerAttributes { Order = 1 }));
+
+            //Extras
+            MaxMoney = Config.Bind<int>(Settings.Extras, "Extras - Max Money", 0, new ConfigDescription("Maximum Amount of Silver to Transfer (0 = Unlimited)", null, new ConfigurationManagerAttributes { Order = 2 }));
+            MoneyTarget = Config.Bind<string>(Settings.Extras, "Extras - Money Target", "Stash", new ConfigDescription("Where silver will be transferred to", new AcceptableValueList<string>("Pouch", "Bag", "Stash"), new ConfigurationManagerAttributes { Order = 1 }));
 
 
-            //Convert and Add Forbidden Items to List
-            if (!string.IsNullOrEmpty(ForbiddenItems.Value))
+            //Add Blacklisted
+            if (EnableBlacklists.Value)
             {
-                string[] BItemsL = ForbiddenItems.Value.Split(',');
-                foreach (string BItems in BItemsL)
+                //Convert and Add Forbidden Items by Name to List
+                if (!string.IsNullOrEmpty(ForbiddenItemsN.Value))
                 {
-                    FItems.Add(int.Parse(BItems));
+                    string[] BItemsnL = ForbiddenItemsN.Value.Split(',');
+                    foreach (string BItemsn in BItemsnL)
+                    {
+                        FItemsN.Add(BItemsn);
+                    }
+                }
+
+                //Convert and Add Forbidden Skills by Name to List
+                if (!string.IsNullOrEmpty(ForbiddenSkillsN.Value))
+                {
+                    string[] BSkillsnL = ForbiddenSkillsN.Value.Split(',');
+                    foreach (string BSkillsn in BSkillsnL)
+                    {
+                        FSkillsN.Add(BSkillsn);
+                    }
+                }
+
+
+                //Convert and Add Forbidden Items by ID to List
+                if (!string.IsNullOrEmpty(ForbiddenItemsID.Value))
+                {
+                    string[] BItemsL = ForbiddenItemsID.Value.Split(',');
+                    foreach (string BItems in BItemsL)
+                    {
+                        FItems.Add(int.Parse(BItems));
+                    }
+                }
+
+                //Convert and Add Forbidden Skills by ID to List
+                if (!string.IsNullOrEmpty(ForbiddenSkillsID.Value))
+                {
+                    string[] BSkillsL = ForbiddenSkillsID.Value.Split(',');
+                    foreach (string BSkills in BSkillsL)
+                    {
+                        FSkills.Add(int.Parse(BSkills));
+                    }
                 }
             }
 
-            //Convert and Add Forbidden Skills to List
-            if (!string.IsNullOrEmpty(ForbiddenSkills.Value))
-            {
-                string[] BSkillsL = ForbiddenSkills.Value.Split(',');
-                foreach (string BSkills in BSkillsL)
-                {
-                    FSkills.Add(int.Parse(BSkills));
-                }
-            }
 
             //initialize NG_StatusManager Debuff
             NG_StatusManager.InitializeEffects();
@@ -169,7 +230,6 @@ namespace NewGamePlus
             harmony.PatchAll();
             Log("New Game Plus starting...");
         }
-
 
         public static bool setMaxStats = false;
         public static bool skillisForbidden = false;
@@ -182,7 +242,6 @@ namespace NewGamePlus
                 Character player = CharacterManager.Instance.GetFirstLocalCharacter();
                 NewGameExtension player_nge = NewGameExtension.CreateExtensionFor(player.UID);
 
-
                 // Two Options
                 //    Option1: 0.X Character with LegacyLevel set, but no PSE
                 if (m_legacy.CharSave.PSave.LegacyLevel > 0)
@@ -194,32 +253,36 @@ namespace NewGamePlus
                 logboy.Log(LogLevel.Message, "Loading Legacy Gear from " + m_legacy.CharSave.PSave.Name);
                 List<int> legacySkills = new List<int>();
 
-
-                //Transfer Money
+                //Transfer Money (To Pouch or Stash
                 if (TransferMoney.Value == true)
                 {
+                    float moneysaved = m_legacy.CharSave.PSave.Money;
+                    if (EnableL.Value)
+                    {
+                        moneysaved *= MoneyL.Value;
+                    }
 
-                    if (MaxMoney.Value == 0 || MaxMoney.Value >= m_legacy.CharSave.PSave.Money)
+                    if (MaxMoney.Value == 0 || MaxMoney.Value >= moneysaved)
                     {
                         if (MoneyTarget.Value.ToLower() == "pouch")
-                            player.Inventory.Pouch.SetSilverCount(m_legacy.CharSave.PSave.Money);
-                        if (MoneyTarget.Value.ToLower() == "backpack")
-                            player.Inventory.EquippedBag.Container.SetSilverCount(m_legacy.CharSave.PSave.Money);
+                            player.Inventory.Pouch.SetSilverCount((int)moneysaved);
                         if (MoneyTarget.Value.ToLower() == "stash")
-                            player.Inventory.Stash.SetSilverCount(m_legacy.CharSave.PSave.Money);
+                            player.Inventory.Stash.SetSilverCount((int)moneysaved);
                     }
                     else
                     {
                         if (MoneyTarget.Value.ToLower() == "pouch")
                             player.Inventory.Pouch.SetSilverCount(MaxMoney.Value);
-                        if (MoneyTarget.Value.ToLower() == "backpack")
-                            player.Inventory.EquippedBag.Container.SetSilverCount(MaxMoney.Value);
                         if (MoneyTarget.Value.ToLower() == "stash")
                             player.Inventory.Stash.SetSilverCount(MaxMoney.Value);
                     }
                 }
 
-                typeof(CharacterRecipeKnowledge).GetMethod("LoadLearntRecipe", FLAGS).Invoke(player.Inventory.RecipeKnowledge, new object[] { m_legacy.CharSave.PSave.RecipeSaves });
+                //Transfer Recipes
+                if (TransferRecipes.Value == true)
+                {
+                    typeof(CharacterRecipeKnowledge).GetMethod("LoadLearntRecipe", FLAGS).Invoke(player.Inventory.RecipeKnowledge, new object[] { m_legacy.CharSave.PSave.RecipeSaves });
+                }
 
 
                 //Add Push Kick, Throw Lantern, Fire/Reload, or Dagger Slash (tutorial event will give duplicates) to Forbidden Skills List
@@ -234,7 +297,6 @@ namespace NewGamePlus
                     FSkills.Add(s);
                 }
 
-
                 foreach (BasicSaveData data in itemList)
                 {
                     Item item = ItemManager.Instance.GetItem(data.m_saveIdentifier.ToString());
@@ -246,51 +308,119 @@ namespace NewGamePlus
                             char type = data.SyncData.Substring(loc + 11, 1)[0];
                             if (type == '2')
                             {
+                                //Initialize Item Clone
                                 item.ChangeParent(player.Inventory.Pouch.transform);
                                 Equipment clone = (Equipment)ItemManager.Instance.CloneItem(item);
 
-                                //Check Forbidden Items
-                                if (FItems != null)
-                                {
-                                    foreach (int blockeditem in FItems)
-                                    {
-                                        if (item.ItemID == blockeditem)
-                                        {
-                                            itemisForbidden = true;
-                                            break;
-                                        }
-                                        else
-                                        {
-                                            itemisForbidden = false;
-                                            continue;
-                                        }
-                                    }
-                                }
-
-                                //Transfer Equippped Items
-                                if (TransferEquipped.Value && !itemisForbidden)
+                                //Transfer Backpack
+                                if (TransferFromBag.Value && clone.GetType() == typeof(Bag))
                                 {
                                     clone.OnContainerChangedOwner(player);
                                     clone.SetIsntNew();
                                     clone.ChangeParent(player.Inventory.Pouch.transform);
                                     player.Inventory.EquipItem(clone);
                                     clone.ForceStartInit();
-                                }
 
-                                //Transfer Money (ALT)
-                                if (clone.GetType() == typeof(Bag) && TransferMoney.Value)
-                                {
-                                    int loc1 = data.SyncData.IndexOf("BagSilver");
-                                    if (loc1 != -1)
+                                    //Transfer Money (to Bag)
+                                    if (TransferMoney.Value && MoneyTarget.Value.ToLower() == "bag")
                                     {
-                                        int len1 = data.SyncData.IndexOf(";", loc1) - loc1;
-                                        string silver = data.SyncData.Substring(loc1 + 10, len1 - 10);
-                                        if (int.TryParse(silver, out int money))
-                                            ((Bag)clone).Container.SetSilverCount(money);
+                                        float moneysaved = m_legacy.CharSave.PSave.Money;
+                                        if (EnableL.Value)
+                                        {
+                                            moneysaved *= MoneyL.Value;
+                                        }
+                                        if (MaxMoney.Value == 0 || MaxMoney.Value >= moneysaved)
+                                            player.Inventory.EquippedBag.Container.SetSilverCount((int)moneysaved);
                                         else
-                                            logboy.Log(LogLevel.Error, "Couldn't parse integer: " + silver);
+                                            player.Inventory.EquippedBag.Container.SetSilverCount(MaxMoney.Value);
                                     }
                                 }
+
+                                //Check Blacklists
+                                if (EnableBlacklists.Value)
+                                {
+                                    itemisForbidden = false;
+                                    //Check Forbidden Items by Name
+                                    if (FItemsN != null)
+                                    {
+                                        foreach (string blockeditem in FItemsN)
+                                        {
+                                            if (item.Name.Contains(blockeditem))
+                                            {
+                                                itemisForbidden = true;
+                                                break;
+                                            }
+                                            else { continue; }
+                                        }
+                                    }
+
+                                    //Check Forbidden Items by ID
+                                    if (FItems != null)
+                                    {
+                                        foreach (int blockeditem in FItems)
+                                        {
+                                            if (item.ItemID == blockeditem)
+                                            {
+                                                itemisForbidden = true;
+                                                break;
+                                            }
+                                            else { continue; }
+                                        }
+                                    }
+
+                                    //Block Item
+                                    if (itemisForbidden)
+                                        continue;
+                                }
+
+                                //Transfer Equipped Items
+                                if (clone.GetType() != typeof(Bag) && TransferEquipped.Value)
+                                {
+                                    float percent = 1f;
+                                    if (EnableL.Value)
+                                    {
+                                        percent = EquippedL.Value;
+                                    }
+
+                                    if (Random.Range(0f, 1f) <= percent)
+                                    {
+                                        if (TransferEquippedArmor.Value && clone.GetType() == typeof(Armor))
+                                        {
+                                            clone.OnContainerChangedOwner(player);
+                                            clone.SetIsntNew();
+                                            clone.ChangeParent(player.Inventory.Pouch.transform);
+                                            player.Inventory.EquipItem(clone);
+                                            clone.ForceStartInit();
+                                        }
+                                        if (TransferEquippedMelee.Value && clone.GetType() == typeof(MeleeWeapon) || TransferEquippedMelee.Value && clone.GetType() == typeof(DualMeleeWeapon))
+                                        {
+                                            clone.OnContainerChangedOwner(player);
+                                            clone.SetIsntNew();
+                                            clone.ChangeParent(player.Inventory.Pouch.transform);
+                                            player.Inventory.EquipItem(clone);
+                                            clone.ForceStartInit();
+                                        }
+                                        if (TransferEquippedRanged.Value && clone.GetType() == typeof(ProjectileWeapon))
+                                        {
+                                            clone.OnContainerChangedOwner(player);
+                                            clone.SetIsntNew();
+                                            clone.ChangeParent(player.Inventory.Pouch.transform);
+                                            player.Inventory.EquipItem(clone);
+                                            clone.ForceStartInit();
+                                        }
+                                        if (TransferEquippedAmmo.Value && clone.GetType() == typeof(Ammunition))
+                                        {
+                                            clone.OnContainerChangedOwner(player);
+                                            clone.SetIsntNew();
+                                            clone.ChangeParent(player.Inventory.Pouch.transform);
+                                            player.Inventory.EquipItem(clone);
+                                            clone.ForceStartInit();
+                                        }
+                                    }
+                                }
+                                else { continue; }
+
+                                continue;
                             }
                         }
                     }
@@ -301,38 +431,87 @@ namespace NewGamePlus
                 foreach (BasicSaveData data in itemList)
                 {
                     Item item = ItemManager.Instance.GetItem(data.m_saveIdentifier.ToString());
+
                     if (item == null)
                         logboy.Log(LogLevel.Error, "Couldn't get Item -- " + data.m_saveIdentifier.ToString());
-                    else if (!(item is Quest) && (!LegacyCharCreationSettings.Value || !(item.GetType() == typeof(Item)) || !item.Name.Contains("Key")))
+                    else if (!(item is Quest) && (!DeleteKeys.Value || !(item.GetType() == typeof(Item)) || !item.Name.Contains("Key")))
                     {
                         int loc = data.SyncData.IndexOf("<Hierarchy>");
                         if (loc != -1)
                         {
-                            //logboy.Log(LogLevel.Message, "Item: " + item.GetType() + " - " + item.Name + " - " + item.name + " - " + data.SyncData);
+                            //logboy.Log(LogLevel.Message, "Item: " + item.GetType() + " - " + item.Name + " - " + item.name + " - " + item.DisplayName + " - " + data.SyncData);
                             int len = data.SyncData.IndexOf("<", loc + 11) - (loc + 11);
                             string type = data.SyncData.Substring(loc + 11, len);
                             //logboy.Log(LogLevel.Message, "NGP - Item TYPE:" + type);
 
-                            //Check Forbidden Items
-                            foreach (int blockeditem in FItems)
+
+                            //Initialize Item Clone
+                            Item clone = ItemManager.Instance.CloneItem(item);
+
+
+                            //Check Blacklists
+                            if (EnableBlacklists.Value)
                             {
-                                if (item.ItemID == blockeditem)
+                                itemisForbidden = false;
+                                //Check Forbidden Items by Name
+                                if (FItemsN != null)
                                 {
-                                    itemisForbidden = true;
-                                    break;
+                                    foreach (string blockeditem in FItemsN)
+                                    {
+                                        if (item.Name.Contains(blockeditem))
+                                        {
+                                            itemisForbidden = true;
+                                            break;
+                                        }
+                                        else { continue; }
+                                    }
                                 }
-                                else
+
+                                //Check Forbidden Items by ID
+                                foreach (int blockeditem in FItems)
                                 {
-                                    itemisForbidden = false;
+                                    if (item.ItemID == blockeditem)
+                                    {
+                                        itemisForbidden = true;
+                                        break;
+                                    }
+                                    else { continue; }
+                                }
+
+                                //Block Item
+                                if (itemisForbidden)
                                     continue;
-                                }
+                            }
+
+
+                            //Limiter Init
+                            bool percentL = true;
+                            bool percentLT = true;
+                            //Limiter - Main Calculations
+                            if (EnableL.Value)
+                            {
+                                percentL = false;
+                                if (type.StartsWith("1Pouch") && Random.Range(0f, 1f) <= PouchL.Value) { percentL = true; }
+                                if (type.Contains("_Content") && Random.Range(0f, 1f) <= BagL.Value) { percentL = true; }
+                                if (type.StartsWith("1Stash") && Random.Range(0f, 1f) <= StashL.Value) { percentL = true; }
+                            }
+                            //Limiter - Type Calculations
+                            if (EnableLT.Value)
+                            {
+                                percentLT = false;
+                                if (clone.GetType() == typeof(Food) && Random.Range(0f, 1f) <= FoodLT.Value) { percentLT = true; }
+                                if (clone.GetType() == typeof(MeleeWeapon) && Random.Range(0f, 1f) <= Melee1LT.Value) { percentLT = true; }
+                                if (clone.GetType() == typeof(DualMeleeWeapon) && Random.Range(0f, 1f) <= Melee2LT.Value) { percentLT = true; }
+                                if (clone.GetType() == typeof(ProjectileWeapon) && Random.Range(0f, 1f) <= RangedLT.Value) { percentLT = true; }
+                                if (clone.GetType() == typeof(Ammunition) && Random.Range(0f, 1f) <= AmmoLT.Value) { percentLT = true; }
+                                if (clone.GetType() == typeof(Bag) && Random.Range(0f, 1f) <= BagLT.Value) { percentLT = true; }
+                                if (clone.GetType() == typeof(Item) && Random.Range(0f, 1f) <= ItemLT.Value) { percentLT = true; }
                             }
 
                             //Transfer Pouch Inventory
-                            if (type.StartsWith("1Pouch") && TransferFromPouch.Value && !itemisForbidden)
+                            if (type.StartsWith("1Pouch") && TransferFromPouch.Value && percentL && percentLT)
                             {
                                 item.ChangeParent(player.Inventory.Pouch.transform);
-                                Item clone = ItemManager.Instance.CloneItem(item);
                                 if (item.RemainingAmount != clone.RemainingAmount)
                                     clone.RemainingAmount = item.RemainingAmount;
                                 clone.OnContainerChangedOwner(player);
@@ -342,10 +521,9 @@ namespace NewGamePlus
                             }
 
                             //Transfer Backpack Inventory
-                            else if (type.Contains("_Content") && TransferEquipped.Value && TransferFromBag.Value && !itemisForbidden)
+                            else if (type.Contains("_Content") && TransferFromBag.Value && percentL && percentLT)
                             {
                                 item.ChangeParent(player.Inventory.EquippedBag.Container.transform);
-                                Item clone = ItemManager.Instance.CloneItem(item);
                                 if (item.RemainingAmount != clone.RemainingAmount)
                                     clone.RemainingAmount = item.RemainingAmount;
                                 clone.OnContainerChangedOwner(player);
@@ -355,10 +533,9 @@ namespace NewGamePlus
                             }
 
                             //Transfer Stash Inventory
-                            else if (type.StartsWith("1Stash") && TransferFromStash.Value && !itemisForbidden)
+                            else if (type.StartsWith("1Stash") && TransferFromStash.Value && percentL && percentLT)
                             {
                                 item.ChangeParent(player.Inventory.Stash.transform);
-                                Item clone = ItemManager.Instance.CloneItem(item);
                                 if (item.RemainingAmount != clone.RemainingAmount)
                                     clone.RemainingAmount = item.RemainingAmount;
                                 clone.OnContainerChangedOwner(player);
@@ -370,17 +547,8 @@ namespace NewGamePlus
                             {
                                 switch (type[0])
                                 {
-                                    case '1':
-                                        if (!itemisForbidden)
-                                        {
-                                            item.OnContainerChangedOwner(player);
-                                            item.SetIsntNew();
-                                            item.ChangeParent(player.Inventory.Stash.transform);
-                                            item.ForceStartInit();
-                                        }
-                                        break;
                                     case '2':
-                                        // Do nothing, cause already equipped
+                                        //Do nothing, cause already equipped
                                         break;
                                     case '3':
                                         if (!(item is Skill))
@@ -389,7 +557,23 @@ namespace NewGamePlus
                                             break;
                                         }
 
-                                        //Check Forbidden Skills
+                                        skillisForbidden = false;
+
+                                        //Check Forbidden Skills by Name
+                                        if (FSkillsN != null)
+                                        {
+                                            foreach (string blockedskill in FSkillsN)
+                                            {
+                                                if (item.Name.Contains(blockedskill))
+                                                {
+                                                    skillisForbidden = true;
+                                                    break;
+                                                }
+                                                else { continue; }
+                                            }
+                                        }
+
+                                        //Check Forbidden Skills by ID
                                         foreach (int blockedskill in FSkills)
                                         {
                                             if (item.ItemID == blockedskill)
@@ -397,20 +581,14 @@ namespace NewGamePlus
                                                 skillisForbidden = true;
                                                 break;
                                             }
-                                            else
-                                            {
-                                                skillisForbidden = false;
-                                                continue;
-                                            }
+                                            else { continue; }
                                         }
 
                                         //Block Forbidden Skill
                                         if (skillisForbidden)
-                                        {
                                             break;
-                                        }
 
-                                        // Check for Exalted, and remove it or add LifeDrain
+                                        //Check for Exalted, and remove it or add LifeDrain
                                         if (item.ItemID == 8205999)
                                         {
                                             if (!TransferExaltedAndLifeDrain.Value)
@@ -429,10 +607,21 @@ namespace NewGamePlus
                                                     }
                                                 }
                                             }
-
                                         }
-                                        if (TransferSkills.Value == true)
+
+                                        //Limiter - Main Calculations
+                                        bool percentSL = true;
+                                        if (EnableL.Value)
+                                        {
+                                            percentSL = false;
+                                            if (Random.Range(0f, 1f) <= SkillL.Value) { percentSL = true; }
+                                        }
+
+                                        //Transfer Skills
+                                        if (TransferSkills.Value && percentSL)
+                                        {
                                             player.Inventory.TryUnlockSkill((Skill)item);
+                                        }
                                         if (!player.Inventory.LearnedSkill(item))
                                             logboy.Log(LogLevel.Error, "Failed to learn skill: " + item.Name);
                                         else
@@ -512,7 +701,7 @@ namespace NewGamePlus
             [HarmonyPrefix]
             public static void Prefix(CharacterCreationPanel __instance, ref SaveInstance ___m_legacy)
             {
-                if (!DisableLegacyChar.Value && ___m_legacy != null)
+                if (EnableNGP.Value && ___m_legacy != null)
                 {
                     m_legacy = ___m_legacy;
                     itemList = new List<BasicSaveData>();
@@ -537,7 +726,7 @@ namespace NewGamePlus
                 //    Face Style
                 //    Hair Style
                 //    Hair Color
-                if (!DisableLegacyChar.Value && _instance != null)
+                if (EnableNGP.Value && _instance != null)
                 {
                     CharacterVisualData legacy = _instance.CharSave.PSave.VisualData;
                     int legacyLevel = _instance.CharSave.PSave.LegacyLevel;
